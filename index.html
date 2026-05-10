@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="가상 광선 추적 랩">
+    <meta name="theme-color" content="#0f172a">
+    <title>3D 가상 광선 추적 랩 (평면거울의 상)</title>
+    
+    <!-- PWA Icons (Placeholder SVGs via Data URI) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%230f172a%22/><circle cx=%2250%22 cy=%2250%22 r=%2230%22 fill=%22%2338bdf8%22/></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%230f172a%22/><circle cx=%2250%22 cy=%2250%22 r=%2230%22 fill=%22%2338bdf8%22/></svg>">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Noto Sans KR', 'sans-serif'] },
+                    colors: {
+                        main: '#38bdf8',
+                        accent: '#c084fc',
+                        dark: '#0f172a',
+                        card: 'rgba(255, 255, 255, 0.05)'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        :root {
+            --main-color: #38bdf8;
+            --bg-color: #0f172a;
+            --text-color: #f8fafc;
+        }
+        body { 
+            font-family: 'Noto Sans KR', sans-serif; 
+            background-color: var(--bg-color); 
+            color: var(--text-color); 
+            margin: 0;
+            overflow-x: hidden;
+        }
+        .glass { 
+            background: var(--card); 
+            backdrop-filter: blur(12px); 
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.1); 
+        }
+        .glass-btn {
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(192, 132, 252, 0.2));
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.2s;
+        }
+        .glass-btn:hover {
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.4), rgba(192, 132, 252, 0.4));
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+        }
+        .glass-btn:active {
+            transform: scale(0.95);
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+        ::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.5); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(56, 189, 248, 0.8); }
+
+        /* range slider custom */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: var(--main-color);
+            cursor: pointer;
+            margin-top: -8px;
+            box-shadow: 0 0 10px rgba(56,189,248,0.8);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: rgba(255,255,255,0.2);
+            border-radius: 2px;
+        }
+        canvas { display: block; outline: none; }
+    </style>
+
+    <!-- React & Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Three.js & OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // ==============================================================
+        // 1. 설정 및 데이터 풀
+        // ==============================================================
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzlxxqXYelP-OVa3pYq_fRxwoIMyxH-EjMK0P-Vzi1DlmqG56_xC3Z_LjfRtKZIPIh0/exec"; 
+
+        const QUIZ_POOL = [
+            { q: "평면거울에 비친 상은 빛이 실제로 모여서 생긴 것이다.", a: false, explain: "거울 뒤에서 빛의 연장선이 만나는 것처럼 보이는 '상'입니다." },
+            { q: "평면거울에서 물체와 거울 사이의 거리, 거울과 상 사이의 거리는 항상 같다.", a: true, explain: "대칭의 원리에 의해 거울 표면에서 물체까지, 상까지의 거리는 동일합니다." },
+            { q: "평면거울은 물체의 상하좌우를 바꾼다.", a: false, explain: "평면거울은 사실 좌우가 아니라 '앞뒤'를 바꿉니다." },
+            { q: "거울 속에 생기는 상은 우리가 거울 뒤에서 빛이 온다고 뇌가 착각하기 때문이다.", a: true, explain: "사람의 눈은 빛이 직진해서 온다고 인식하므로, 반사 광선의 연장선에서 빛이 출발한 것으로 느낍니다." },
+            { q: "평면거울을 향해 다가가면 상의 크기는 점점 커진다.", a: false, explain: "평면거울에서 상의 크기는 항상 실제 물체의 크기와 동일합니다." },
+            { q: "관찰자가 거울에서 멀어지면 상도 뒤로 멀어진다.", a: false, explain: "상의 위치는 오직 '거울과 물체 사이의 거리'에만 의존하며, 관찰자의 위치와는 무관합니다." },
+            { q: "시뮬레이션에서 거울 뒤 공간의 점선은 실제 빛이 진행하는 경로이다.", a: false, explain: "빛은 거울을 통과하지 못합니다. 점선은 빛이 직진한다고 가정했을 때의 가상의 경로(연장선)입니다." },
+            { q: "거울에 비친 내 모습을 볼 때, 빛은 내 몸에서 출발해 거울에서 반사되어 눈으로 들어온다.", a: true, explain: "물체에서 반사된 빛이 거울 면에서 반사 법칙에 따라 다시 반사되어 관찰자의 눈으로 들어옵니다." },
+            { q: "빛이 거울 면에서 반사될 때, 항상 입사각과 반사각의 크기는 같다.", a: true, explain: "이는 빛의 반사 법칙으로, 평면거울에서도 완벽하게 적용됩니다." },
+            { q: "거울에 비친 오른손이 왼손처럼 보이는 이유는 거울이 물체를 앞뒤 대칭으로 뒤집었기 때문이다.", a: true, explain: "거울은 거울 면을 기준으로 앞뒤를 대칭시킵니다. 이 때문에 방향이 역전되어 보이는 것입니다." },
+            { q: "거울 속의 상은 거울의 표면(유리 겉면)에 맺히는 것이다.", a: false, explain: "화면을 돌려 거울 옆모습을 확인해 보세요. 상은 표면이 아니라 물체와 같은 거리만큼 떨어진 거울 '뒤쪽 공간'에 맺혀 있습니다." }
+        ];
+
+        // ==============================================================
+        // 2. 공통 UI 컴포넌트
+        // ==============================================================
+        const ModalOverlay = ({ children, onClose }) => (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+                <div className="glass max-w-2xl w-full max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl p-6" onClick={e => e.stopPropagation()}>
+                    {children}
+                </div>
+            </div>
+        );
+
+        const AlertModal = ({ message, onClose }) => (
+            <ModalOverlay onClose={onClose}>
+                <div className="text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-red-500/20 text-red-400 rounded-full flex items-center justify-center text-3xl">!</div>
+                    <p className="text-lg mb-6">{message}</p>
+                    <button onClick={onClose} className="px-6 py-2 glass-btn rounded-full font-bold">확인</button>
+                </div>
+            </ModalOverlay>
+        );
+
+        const GuideModal = ({ onClose }) => {
+            const [copied, setCopied] = React.useState(false);
+
+            const handleCopy = () => {
+                const codeToCopy = `function doPost(e) {
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    const data = JSON.parse(e.postData.contents);
+    sheet.appendRow([
+      new Date(),
+      data.studentId || "",
+      data.studentName || "",
+      data.minValue ?? "",
+      data.maxValue ?? "",
+      data.quizScore ?? "",
+      data.insight || ""
+    ]);
+    return ContentService.createTextOutput(JSON.stringify({result:"success"}))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({result:"error", message: err.message}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}`;
+                
+                try {
+                    // Create a temporary textarea to use document.execCommand('copy') which works inside restricted iFrames
+                    const textArea = document.createElement("textarea");
+                    textArea.value = codeToCopy;
+                    
+                    // Prevent scrolling to bottom
+                    textArea.style.position = "fixed";
+                    textArea.style.top = "0";
+                    textArea.style.left = "0";
+                    textArea.style.opacity = "0";
+                    
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                } catch (err) {
+                    console.error('Failed to copy', err);
+                }
+            };
+
+            return (
+                <ModalOverlay onClose={onClose}>
+                    <div className="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
+                        <h2 className="text-xl font-bold flex items-center"><span className="mr-2">📚</span> 교사 DB 연동 가이드</h2>
+                        <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+                    </div>
+                    <div className="space-y-4 text-sm text-gray-200">
+                        <div>
+                            <h3 className="font-bold text-main mb-1">① 구글 시트 준비</h3>
+                            <p>새 구글 시트를 생성하고 1행에 다음 헤더를 정확히 입력합니다:<br/>
+                            <code className="bg-black/50 p-1 rounded text-accent">timestamp | studentId | studentName | minValue | maxValue | quizScore | insight</code></p>
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-main mb-1">② Apps Script 코드 작성</h3>
+                            <p>확장 프로그램 &gt; Apps Script를 열고 기존 코드를 지운 뒤 아래 코드를 붙여넣습니다.</p>
+                            <div className="relative mt-2">
+                                <pre className="bg-black/50 p-3 rounded overflow-x-auto text-xs text-green-300">
+{`function doPost(e) {
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    const data = JSON.parse(e.postData.contents);
+    sheet.appendRow([
+      new Date(),
+      data.studentId || "",
+      data.studentName || "",
+      data.minValue ?? "",
+      data.maxValue ?? "",
+      data.quizScore ?? "",
+      data.insight || ""
+    ]);
+    return ContentService.createTextOutput(JSON.stringify({result:"success"}))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({result:"error", message: err.message}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}`}</pre>
+                                <button 
+                                    className={`absolute top-2 right-2 px-2 py-1 rounded text-xs transition-colors ${copied ? 'bg-green-500/50 text-white' : 'bg-white/20 hover:bg-white/30'}`}
+                                    onClick={handleCopy}
+                                >
+                                    {copied ? '복사됨!' : '복사'}
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-main mb-1">③ 배포 및 URL 적용</h3>
+                            <ul className="list-disc pl-5">
+                                <li>우측 상단 <b>배포</b> &gt; <b>새 배포</b> 클릭</li>
+                                <li>유형: <b>웹 앱</b></li>
+                                <li>액세스: <b>모든 사용자</b> (접근 권한)</li>
+                                <li>배포 클릭 후 발급된 URL을 복사하여 HTML 소스코드 최상단 <code>GOOGLE_SCRIPT_URL</code> 변수에 붙여넣습니다.</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-main mb-1">④ PWA 홈 화면 추가 안내</h3>
+                            <ul className="list-disc pl-5">
+                                <li>iOS(Safari): 하단 공유 버튼 📤 &gt; '홈 화면에 추가'</li>
+                                <li>Android(Chrome): 우측 상단 메뉴 ⋮ &gt; '홈 화면에 추가'</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div className="mt-6 text-center text-gray-500 text-xs">Created by Yang DH</div>
+                </ModalOverlay>
+            );
+        };
+
+        // ==============================================================
+        // 3. Three.js 시각화 컴포넌트
+        // ==============================================================
+        const ThreeSimulation = ({ objDistance, objX, objRotation, eyeX, onAngleUpdate }) => {
+            const mountRef = React.useRef(null);
+            
+            // Three.js References
+            const sceneRef = React.useRef(null);
+            const cameraRef = React.useRef(null);
+            const rendererRef = React.useRef(null);
+            const controlsRef = React.useRef(null);
+            
+            const objGroupRef = React.useRef(null);
+            const imgGroupRef = React.useRef(null);
+            const eyeMeshRef = React.useRef(null);
+
+            const rayLineTopRef = React.useRef(null);
+            const extLineTopRef = React.useRef(null);
+            const rayLineBotRef = React.useRef(null);
+            const extLineBotRef = React.useRef(null);
+            const normalLineRef = React.useRef(null);
+            
+            const createFModel = (isImage = false) => {
+                const group = new THREE.Group();
+                // Materials
+                const matFront = new THREE.MeshLambertMaterial({ color: 0xff3333 }); // Red front
+                const matBack = new THREE.MeshLambertMaterial({ color: 0x3333ff });  // Blue back
+                const matSide = new THREE.MeshLambertMaterial({ color: 0x888888 });  // Gray sides
+                
+                // BoxGeometry faces: right(0), left(1), top(2), bottom(3), front(4), back(5)
+                // front is +z, back is -z
+                const materials = [matSide, matSide, matSide, matSide, matFront, matBack];
+
+                const stem = new THREE.Mesh(new THREE.BoxGeometry(0.8, 4, 0.5), materials);
+                stem.position.set(-1, 0, 0);
+                
+                const topBar = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.8, 0.5), materials);
+                topBar.position.set(0.65, 1.6, 0);
+                
+                const midBar = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.8, 0.5), materials);
+                midBar.position.set(0.15, 0, 0);
+
+                group.add(stem);
+                group.add(topBar);
+                group.add(midBar);
+
+                // Add point marker (Top)
+                const markerGeo = new THREE.SphereGeometry(0.2, 16, 16);
+                const markerMatTop = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+                const markerTop = new THREE.Mesh(markerGeo, markerMatTop);
+                markerTop.position.set(1.9, 1.6, 0.25); // Tip of top bar
+                group.add(markerTop);
+
+                // Add point marker (Bottom)
+                const markerMatBot = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
+                const markerBot = new THREE.Mesh(markerGeo, markerMatBot);
+                markerBot.position.set(-1.0, -2.0, 0.25); // Bottom of stem
+                group.add(markerBot);
+
+                if (isImage) {
+                    // 상은 z축 대칭: 앞뒤 반전
+                    group.scale.set(1, 1, -1);
+                }
+
+                return group;
+            };
+
+            React.useEffect(() => {
+                const width = mountRef.current.clientWidth;
+                const height = mountRef.current.clientHeight;
+
+                // 1. Scene Setup
+                const scene = new THREE.Scene();
+                scene.background = null; 
+                sceneRef.current = scene;
+
+                // 2. Camera - 한 화면에 더 잘 들어오도록 위치를 앞으로 당김
+                const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+                camera.position.set(15, 12, 22);
+                cameraRef.current = camera;
+
+                // 3. Renderer
+                const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                renderer.setSize(width, height);
+                renderer.setPixelRatio(window.devicePixelRatio);
+                mountRef.current.appendChild(renderer.domElement);
+                rendererRef.current = renderer;
+
+                // 4. Controls
+                const controls = new THREE.OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.05;
+                controls.maxPolarAngle = Math.PI / 2 + 0.5; 
+                controlsRef.current = controls;
+
+                // 5. Lighting
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+                scene.add(ambientLight);
+                const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                dirLight.position.set(10, 20, 30);
+                scene.add(dirLight);
+
+                // 6. Grid & Mirror Plane (z=0)
+                const gridHelper = new THREE.GridHelper(60, 60, 0x444444, 0x222222);
+                scene.add(gridHelper);
+
+                const mirrorGeo = new THREE.PlaneGeometry(40, 20);
+                const mirrorMat = new THREE.MeshPhysicalMaterial({ 
+                    color: 0x88ccff, 
+                    transparent: true, 
+                    opacity: 0.4, 
+                    side: THREE.DoubleSide,
+                    roughness: 0.2,
+                    transmission: 0.5,
+                    thickness: 0.5
+                });
+                const mirror = new THREE.Mesh(mirrorGeo, mirrorMat);
+                
+                // 거울 테두리 추가 (전자칠판 시인성 강화)
+                const mirrorEdges = new THREE.EdgesGeometry(mirrorGeo);
+                const mirrorLine = new THREE.LineSegments(mirrorEdges, new THREE.LineBasicMaterial({ color: 0x38bdf8, linewidth: 2 }));
+                mirror.add(mirrorLine);
+
+                mirror.position.set(0, 10, 0); 
+                scene.add(mirror);
+
+                // 7. Objects
+                const objGroup = createFModel(false);
+                scene.add(objGroup);
+                objGroupRef.current = objGroup;
+
+                const imgGroup = createFModel(true);
+                imgGroup.children.forEach(child => {
+                    if (child.material && child.material.length) {
+                        child.material = child.material.map(m => {
+                            const newM = m.clone();
+                            newM.transparent = true;
+                            newM.opacity = 0.6;
+                            return newM;
+                        });
+                    }
+                });
+                scene.add(imgGroup);
+                imgGroupRef.current = imgGroup;
+
+                // 8. Eye Model
+                const eyeGeo = new THREE.SphereGeometry(1, 32, 32);
+                const eyeMat = new THREE.MeshLambertMaterial({color: 0xffffff});
+                const eyeMesh = new THREE.Mesh(eyeGeo, eyeMat);
+                const pupilGeo = new THREE.SphereGeometry(0.4, 32, 32);
+                const pupilMat = new THREE.MeshBasicMaterial({color: 0x000000});
+                const pupilMesh = new THREE.Mesh(pupilGeo, pupilMat);
+                pupilMesh.position.z = 0.8;
+                eyeMesh.add(pupilMesh);
+                scene.add(eyeMesh);
+                eyeMeshRef.current = eyeMesh;
+
+                // 9. Ray Lines & Normal
+                const rayMatTop = new THREE.LineBasicMaterial({ color: 0xffff00, linewidth: 2 });
+                const rayLineTop = new THREE.Line(new THREE.BufferGeometry(), rayMatTop);
+                scene.add(rayLineTop);
+                rayLineTopRef.current = rayLineTop;
+
+                const extMatTop = new THREE.LineDashedMaterial({ color: 0xaaaaaa, dashSize: 0.5, gapSize: 0.5 });
+                const extLineTop = new THREE.Line(new THREE.BufferGeometry(), extMatTop);
+                scene.add(extLineTop);
+                extLineTopRef.current = extLineTop;
+
+                const rayMatBot = new THREE.LineBasicMaterial({ color: 0xffaa00, linewidth: 2 });
+                const rayLineBot = new THREE.Line(new THREE.BufferGeometry(), rayMatBot);
+                scene.add(rayLineBot);
+                rayLineBotRef.current = rayLineBot;
+
+                const extMatBot = new THREE.LineDashedMaterial({ color: 0x888888, dashSize: 0.5, gapSize: 0.5 });
+                const extLineBot = new THREE.Line(new THREE.BufferGeometry(), extMatBot);
+                scene.add(extLineBot);
+                extLineBotRef.current = extLineBot;
+
+                const normalMat = new THREE.LineDashedMaterial({ color: 0x00ff00, dashSize: 0.5, gapSize: 0.5 });
+                const normalLine = new THREE.Line(new THREE.BufferGeometry(), normalMat);
+                scene.add(normalLine);
+                normalLineRef.current = normalLine;
+
+                // Animation Loop
+                let reqId;
+                const animate = () => {
+                    reqId = requestAnimationFrame(animate);
+                    controls.update();
+                    renderer.render(scene, camera);
+                };
+                animate();
+
+                // Resize handler
+                const handleResize = () => {
+                    if (!mountRef.current) return;
+                    const w = mountRef.current.clientWidth;
+                    const h = mountRef.current.clientHeight;
+                    camera.aspect = w / h;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(w, h);
+                };
+                window.addEventListener('resize', handleResize);
+
+                return () => {
+                    window.removeEventListener('resize', handleResize);
+                    cancelAnimationFrame(reqId);
+                    if (rendererRef.current && mountRef.current) {
+                        mountRef.current.removeChild(rendererRef.current.domElement);
+                    }
+                    renderer.dispose();
+                };
+            }, []);
+
+            // Update positions dynamically
+            React.useEffect(() => {
+                if (!objGroupRef.current || !imgGroupRef.current || !rayLineTopRef.current) return;
+
+                const heightOffset = 2; // Lift F model above grid
+                // 눈의 위치를 거울에 더 가깝게(Z: 15) 낮게(Y: 8) 조정하여 한눈에 보이게 함
+                const eyePos = new THREE.Vector3(eyeX, 8, 15);
+                
+                if (eyeMeshRef.current) {
+                    eyeMeshRef.current.position.copy(eyePos);
+                }
+
+                // Update Object and Image positions & rotations
+                const objRotRad = THREE.MathUtils.degToRad(objRotation);
+                
+                objGroupRef.current.position.set(objX, heightOffset, objDistance);
+                objGroupRef.current.rotation.set(0, objRotRad, 0);
+                objGroupRef.current.updateMatrixWorld();
+                
+                imgGroupRef.current.position.set(objX, heightOffset, -objDistance);
+                imgGroupRef.current.rotation.set(0, objRotRad, 0); // scale.z = -1 already handles the mirroring perfectly
+                imgGroupRef.current.updateMatrixWorld();
+
+                const calcReflection = (localPt, rayLine, extLine) => {
+                    const pObj = objGroupRef.current.localToWorld(localPt.clone());
+                    const pImg = imgGroupRef.current.localToWorld(localPt.clone());
+
+                    const t = -pImg.z / (eyePos.z - pImg.z);
+                    const pRef = new THREE.Vector3(
+                        pImg.x + t * (eyePos.x - pImg.x),
+                        pImg.y + t * (eyePos.y - pImg.y),
+                        0
+                    );
+
+                    rayLine.geometry.setFromPoints([pObj, pRef, eyePos]);
+                    
+                    const extGeo = new THREE.BufferGeometry().setFromPoints([pRef, pImg]);
+                    extLine.geometry.dispose();
+                    extLine.geometry = extGeo;
+                    extLine.computeLineDistances();
+
+                    return { pObj, pRef };
+                };
+
+                // Top Point
+                const { pObj: pObjTop, pRef: pRefTop } = calcReflection(new THREE.Vector3(1.9, 1.6, 0.25), rayLineTopRef.current, extLineTopRef.current);
+                
+                // Bottom Point
+                calcReflection(new THREE.Vector3(-1.0, -2.0, 0.25), rayLineBotRef.current, extLineBotRef.current);
+
+                // Normal Line
+                const pNormalEnd = new THREE.Vector3(pRefTop.x, pRefTop.y, pRefTop.z + 10);
+                normalLineRef.current.geometry.dispose();
+                normalLineRef.current.geometry = new THREE.BufferGeometry().setFromPoints([pRefTop, pNormalEnd]);
+                normalLineRef.current.computeLineDistances();
+
+                // Calculate Incident/Reflection Angle
+                const vObjToRef = new THREE.Vector3().subVectors(pObjTop, pRefTop).normalize();
+                const normalVec = new THREE.Vector3(0, 0, 1);
+                const angleRad = vObjToRef.angleTo(normalVec);
+                const angleDeg = THREE.MathUtils.radToDeg(angleRad).toFixed(1);
+                
+                if (onAngleUpdate) onAngleUpdate(angleDeg);
+
+                // Eye looks at top reflection point
+                if (eyeMeshRef.current) {
+                    eyeMeshRef.current.lookAt(pRefTop);
+                }
+
+            }, [objDistance, objX, objRotation, eyeX]);
+
+            return <div ref={mountRef} className="w-full h-full min-h-[400px] rounded-xl overflow-hidden shadow-inner bg-black/30"></div>;
+        };
+
+        // ==============================================================
+        // 4. Main App Component
+        // ==============================================================
+        const App = () => {
+            const [view, setView] = React.useState('intro');
+            const [alertMsg, setAlertMsg] = React.useState('');
+            const [showGuide, setShowGuide] = React.useState(false);
+
+            // Simulation States
+            const [objDistance, setObjDistance] = React.useState(10); // Z축
+            const [objX, setObjX] = React.useState(0);                // X축
+            const [objRotation, setObjRotation] = React.useState(0);  // Y축 회전
+            const [eyeX, setEyeX] = React.useState(8);                // 관찰자 X위치
+            const [currentAngle, setCurrentAngle] = React.useState(0); // 반사각
+            
+            const [records, setRecords] = React.useState([]);
+
+            // Report States
+            const [studentId, setStudentId] = React.useState('');
+            const [studentName, setStudentName] = React.useState('');
+            const [insight, setInsight] = React.useState('');
+            
+            // Quiz States
+            const [quizList, setQuizList] = React.useState([]);
+            const [answers, setAnswers] = React.useState({});
+            const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+            // Initialization
+            React.useEffect(() => {
+                const shuffled = [...QUIZ_POOL].sort(() => 0.5 - Math.random());
+                setQuizList(shuffled.slice(0, 3));
+            }, []);
+
+            // Handlers
+            const handleRecord = () => {
+                setRecords(prev => [...prev, { round: prev.length + 1, dist: objDistance }]);
+            };
+
+            const handleReset = () => {
+                setRecords([]);
+                setObjDistance(10);
+                setObjX(0);
+                setObjRotation(0);
+                setEyeX(8);
+            };
+
+            const handleAnswer = (qIndex, isTrue) => {
+                const q = quizList[qIndex];
+                const isCorrect = q.a === isTrue;
+                setAnswers(prev => ({ ...prev, [qIndex]: { isCorrect, explain: q.explain } }));
+            };
+
+            const submitData = () => {
+                if (!studentId.trim() || !studentName.trim() || !insight.trim()) {
+                    setAlertMsg("학번, 이름, 알게 된 점을 모두 입력해주세요.");
+                    return;
+                }
+                if (Object.keys(answers).length < 3) {
+                    setAlertMsg("OX 퀴즈 3문제를 모두 풀어주세요.");
+                    return;
+                }
+                if (!GOOGLE_SCRIPT_URL) {
+                    setAlertMsg("교사 가이드를 참고하여 GOOGLE_SCRIPT_URL을 설정해주세요.");
+                    return;
+                }
+
+                const quizScore = Object.values(answers).filter(a => a.isCorrect).length;
+                let minVal = 0, maxVal = 0;
+                if (records.length > 0) {
+                    const dists = records.map(r => r.dist);
+                    minVal = Math.min(...dists);
+                    maxVal = Math.max(...dists);
+                }
+
+                setIsSubmitting(true);
+
+                const payload = {
+                    timestamp: new Date().toISOString(),
+                    studentId,
+                    studentName,
+                    minValue: minVal,
+                    maxValue: maxVal,
+                    quizScore,
+                    insight
+                };
+
+                fetch(GOOGLE_SCRIPT_URL, {
+                    method: "POST",
+                    mode: "no-cors",
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
+                    body: JSON.stringify(payload)
+                }).then(() => {
+                    setTimeout(() => {
+                        setIsSubmitting(false);
+                        setView('done');
+                    }, 1500);
+                }).catch(err => {
+                    console.error(err);
+                    setAlertMsg("서버 전송 중 오류가 발생했습니다.");
+                    setIsSubmitting(false);
+                });
+            };
+
+            // Views Renderers
+            const renderIntro = () => (
+                <div className="flex flex-col items-center justify-center min-h-screen p-6 relative">
+                    <div className="glass max-w-3xl w-full p-8 md:p-12 rounded-3xl text-center space-y-6 animate-fade-in relative overflow-hidden">
+                        {/* Background Decoration */}
+                        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-accent rounded-full blur-3xl opacity-20"></div>
+                        <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-40 h-40 bg-main rounded-full blur-3xl opacity-20"></div>
+                        
+                        <div className="text-6xl mb-4">🪞</div>
+                        <h1 className="text-3xl md:text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-main to-accent">
+                            평면거울의 비밀,<br/>가상 광선 추적 랩
+                        </h1>
+                        <p className="text-lg md:text-xl text-gray-300 font-light leading-relaxed break-keep">
+                            거울 속의 내 모습은 어떻게 생겨나는 걸까요?<br/>
+                            3D 공간에서 평면거울을 관찰하며 빛의 반사 경로와 <b>연장선이 만나는 상</b>을 직접 확인해 보세요.
+                        </p>
+                        
+                        <div className="bg-black/40 p-5 rounded-2xl text-left text-sm md:text-base space-y-3 mx-auto max-w-lg mt-6 border border-white/5">
+                            <p>🎯 <b>실험 목표</b></p>
+                            <ul className="list-disc pl-5 space-y-1 text-gray-300">
+                                <li>빛이 반사되어 눈으로 들어오는 경로(실선) 관찰하기</li>
+                                <li>거울 뒤 공간의 빛의 연장선(점선)이 만나는 점 찾기</li>
+                                <li>물체의 앞뒷면 색상을 통해 거울이 <b>앞뒤</b>를 바꾼다는 사실 깨닫기</li>
+                            </ul>
+                        </div>
+
+                        <button 
+                            onClick={() => setView('simulation')}
+                            className="mt-8 px-10 py-4 glass-btn rounded-full text-xl font-bold tracking-wider inline-flex items-center group"
+                        >
+                            실험 시작하기
+                            <span className="ml-2 group-hover:translate-x-1 transition-transform">🚀</span>
+                        </button>
+                    </div>
+                    <div className="absolute bottom-4 text-xs text-gray-500 font-light tracking-widest">
+                        Created by Yang DH
+                    </div>
+                </div>
+            );
+
+            const renderSimulation = () => (
+                <div className="flex flex-col min-h-screen p-4 md:p-6 pb-20">
+                    <header className="flex justify-between items-center mb-4">
+                        <div>
+                            <h2 className="text-2xl font-bold text-main">가상 광선 추적 랩</h2>
+                            <p className="text-sm text-gray-400">마우스 좌클릭으로 공간을 회전해 거울 뒤를 보세요!</p>
+                        </div>
+                    </header>
+
+                    <div className="flex flex-col lg:flex-row gap-6 flex-1 h-[calc(100vh-120px)] min-h-[600px]">
+                        {/* Left: 3D Canvas */}
+                        <div className="flex-1 relative glass rounded-2xl flex flex-col">
+                            {/* Legend Overlay */}
+                            <div className="absolute top-4 left-4 z-10 glass px-4 py-3 rounded-xl text-xs space-y-2 pointer-events-none">
+                                <div className="flex items-center"><span className="w-4 h-4 bg-red-500 mr-2 rounded-sm inline-block"></span> 물체 앞면 (빨강)</div>
+                                <div className="flex items-center"><span className="w-4 h-4 bg-blue-500 mr-2 rounded-sm inline-block"></span> 물체 뒷면 (파랑)</div>
+                                <div className="flex items-center"><span className="w-4 h-[2px] bg-yellow-400 mr-2 inline-block"></span> 끝점 빛 (Top)</div>
+                                <div className="flex items-center"><span className="w-4 h-[2px] bg-orange-400 mr-2 inline-block"></span> 밑점 빛 (Bottom)</div>
+                                <div className="flex items-center"><span className="w-4 h-[2px] border-t-2 border-dashed border-gray-400 mr-2 inline-block"></span> 빛의 연장선(상)</div>
+                                <div className="flex items-center"><span className="w-4 h-[2px] border-t-2 border-dashed border-green-500 mr-2 inline-block"></span> 거울 표면 법선</div>
+                            </div>
+                            
+                            <ThreeSimulation 
+                                objDistance={objDistance} 
+                                objX={objX} 
+                                objRotation={objRotation} 
+                                eyeX={eyeX} 
+                                onAngleUpdate={setCurrentAngle}
+                            />
+                        </div>
+
+                        {/* Right: Control Panel */}
+                        <div className="w-full lg:w-80 glass rounded-2xl p-5 flex flex-col gap-6 overflow-y-auto">
+                            <div>
+                                <h3 className="text-lg font-bold mb-3 flex items-center">🎛️ 조작 패널</h3>
+                                <div className="space-y-4">
+                                    <div className="bg-black/30 p-3 rounded-xl border border-white/5">
+                                        <div className="flex justify-between mb-2 text-sm">
+                                            <span>거울 앞 거리 (Z)</span>
+                                            <span className="text-main font-bold">{objDistance} cm</span>
+                                        </div>
+                                        <input type="range" min="5" max="25" step="1" value={objDistance} onChange={(e) => setObjDistance(Number(e.target.value))} />
+                                    </div>
+                                    <div className="bg-black/30 p-3 rounded-xl border border-white/5">
+                                        <div className="flex justify-between mb-2 text-sm">
+                                            <span>좌우 이동 (X)</span>
+                                            <span className="text-main font-bold">{objX}</span>
+                                        </div>
+                                        <input type="range" min="-15" max="15" step="1" value={objX} onChange={(e) => setObjX(Number(e.target.value))} />
+                                    </div>
+                                    <div className="bg-black/30 p-3 rounded-xl border border-white/5">
+                                        <div className="flex justify-between mb-2 text-sm">
+                                            <span>제자리 회전 (Y)</span>
+                                            <span className="text-main font-bold">{objRotation}°</span>
+                                        </div>
+                                        <input type="range" min="-180" max="180" step="1" value={objRotation} onChange={(e) => setObjRotation(Number(e.target.value))} />
+                                    </div>
+                                    <div className="bg-black/30 p-3 rounded-xl border border-accent/20">
+                                        <div className="flex justify-between mb-2 text-sm">
+                                            <span className="text-accent">👀 눈 위치 (관찰자)</span>
+                                            <span className="text-accent font-bold">{eyeX}</span>
+                                        </div>
+                                        <input type="range" min="-20" max="20" step="1" value={eyeX} onChange={(e) => setEyeX(Number(e.target.value))} />
+                                        <p className="text-[10px] text-gray-400 mt-2 leading-tight">
+                                            * 관찰자가 이동해도 상의 위치는 변하지 않는 것을 확인하세요.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex-1">
+                                <div className="flex justify-between items-center mb-3">
+                                    <h3 className="text-lg font-bold flex items-center">📊 데이터 관찰</h3>
+                                    <span className="text-xs bg-accent/20 text-accent px-2 py-1 rounded">기록 {records.length}개</span>
+                                </div>
+                                <div className="bg-black/30 p-4 rounded-xl border border-white/5 space-y-3">
+                                    <div className="flex justify-between text-sm items-center">
+                                        <span className="text-gray-300">물체까지 거리</span>
+                                        <span className="font-mono text-lg">{objDistance} cm</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm items-center border-t border-white/10 pt-3">
+                                        <span className="text-gray-300">거울 속 상까지 거리</span>
+                                        <span className="font-mono text-lg text-accent">{objDistance} cm</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm items-center border-t border-white/10 pt-3">
+                                        <span className="text-gray-300">입사각 = 반사각</span>
+                                        <span className="font-mono text-lg text-green-400">{currentAngle}°</span>
+                                    </div>
+                                    <button 
+                                        onClick={handleRecord}
+                                        className="w-full mt-4 py-2 bg-main/20 hover:bg-main/40 border border-main/50 rounded-lg text-sm transition-colors active:scale-95"
+                                    >
+                                        현재 데이터 기록하기
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 mt-auto">
+                                <button onClick={handleReset} className="py-3 bg-red-500/20 hover:bg-red-500/40 rounded-xl text-red-200 transition-colors active:scale-95 text-sm">
+                                    초기화
+                                </button>
+                                <button onClick={() => setView('report')} className="py-3 glass-btn rounded-xl font-bold active:scale-95 text-sm">
+                                    보고서 작성 📝
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            const renderReport = () => (
+                <div className="min-h-screen p-4 md:p-8 flex justify-center items-start">
+                    <div className="glass w-full max-w-4xl rounded-3xl p-6 md:p-10 shadow-2xl relative">
+                        <button onClick={() => setView('simulation')} className="absolute top-6 left-6 text-gray-400 hover:text-white transition-colors">
+                            ← 뒤로
+                        </button>
+                        <h2 className="text-3xl font-black text-center mb-8 text-main mt-4">실험 결과 보고서</h2>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            {/* Left Col: Data & Input */}
+                            <div className="space-y-6">
+                                <div className="bg-black/40 p-5 rounded-2xl border border-white/5">
+                                    <h3 className="font-bold text-accent mb-3">📍 기록된 데이터</h3>
+                                    {records.length === 0 ? (
+                                        <p className="text-sm text-gray-400 py-4 text-center">기록된 데이터가 없습니다.</p>
+                                    ) : (
+                                        <div className="max-h-40 overflow-y-auto pr-2">
+                                            <table className="w-full text-sm text-center">
+                                                <thead className="text-gray-400 border-b border-white/10">
+                                                    <tr><th className="pb-2">횟수</th><th className="pb-2">물체거리</th><th className="pb-2">상거리</th></tr>
+                                                </thead>
+                                                <tbody>
+                                                    {records.map((r, i) => (
+                                                        <tr key={i} className="border-b border-white/5">
+                                                            <td className="py-2">{r.round}</td>
+                                                            <td className="py-2">{r.dist} cm</td>
+                                                            <td className="py-2 text-accent">{r.dist} cm</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="space-y-4 bg-black/40 p-5 rounded-2xl border border-white/5">
+                                    <h3 className="font-bold text-accent mb-1">📝 학생 정보 및 결론</h3>
+                                    <div className="flex gap-3">
+                                        <input type="number" placeholder="학번 (예: 2101)" value={studentId} onChange={e => setStudentId(e.target.value)} className="flex-1 bg-black/50 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:border-main text-white" />
+                                        <input type="text" placeholder="이름" value={studentName} onChange={e => setStudentName(e.target.value)} className="flex-1 bg-black/50 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:border-main text-white" />
+                                    </div>
+                                    <textarea placeholder="3D 공간에서 평면거울을 관찰하며 새롭게 알게 된 점을 적어보세요. (특히 거울이 앞뒤를 바꾼다는 점, 상이 생기는 원리 등)" value={insight} onChange={e => setInsight(e.target.value)} className="w-full h-32 bg-black/50 border border-white/10 rounded-lg px-4 py-3 focus:outline-none focus:border-main text-white resize-none"></textarea>
+                                </div>
+                            </div>
+
+                            {/* Right Col: Quiz */}
+                            <div className="bg-black/40 p-5 rounded-2xl border border-white/5 flex flex-col">
+                                <h3 className="font-bold text-accent mb-4 flex justify-between items-center">
+                                    <span>🧠 개념 확인 OX 퀴즈</span>
+                                    <span className="text-xs bg-white/10 px-2 py-1 rounded">3문항</span>
+                                </h3>
+                                <div className="space-y-4 flex-1 overflow-y-auto pr-2">
+                                    {quizList.map((q, idx) => {
+                                        const ans = answers[idx];
+                                        return (
+                                            <div key={idx} className={`p-4 rounded-xl border ${ans ? (ans.isCorrect ? 'border-green-500/50 bg-green-900/20' : 'border-red-500/50 bg-red-900/20') : 'border-white/10 bg-black/30'}`}>
+                                                <p className="text-sm mb-3 leading-relaxed break-keep">Q{idx+1}. {q.q}</p>
+                                                {!ans ? (
+                                                    <div className="flex gap-2">
+                                                        <button onClick={() => handleAnswer(idx, true)} className="flex-1 py-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/40 text-blue-300 font-bold transition-colors">O</button>
+                                                        <button onClick={() => handleAnswer(idx, false)} className="flex-1 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/40 text-red-300 font-bold transition-colors">X</button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-xs mt-2 animate-fade-in">
+                                                        <span className={`font-bold mr-2 ${ans.isCorrect ? 'text-green-400' : 'text-red-400'}`}>
+                                                            {ans.isCorrect ? '정답입니다! 🎉' : '틀렸습니다! 🥲'}
+                                                        </span>
+                                                        <p className="text-gray-300 mt-1">{ans.explain}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                                <button 
+                                    onClick={submitData}
+                                    disabled={isSubmitting}
+                                    className={`w-full mt-6 py-4 rounded-xl font-bold text-lg transition-all ${isSubmitting ? 'bg-gray-600 cursor-not-allowed' : 'glass-btn hover:scale-[0.98]'}`}
+                                >
+                                    {isSubmitting ? (
+                                        <span className="flex items-center justify-center">
+                                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                            제출 중...
+                                        </span>
+                                    ) : '결과 제출하기'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            const renderDone = () => (
+                <div className="flex flex-col items-center justify-center min-h-screen p-6 relative">
+                    <div className="glass max-w-md w-full p-10 rounded-3xl text-center space-y-6">
+                        <div className="text-6xl mb-2">🎉</div>
+                        <h2 className="text-3xl font-black text-main">제출 완료!</h2>
+                        <p className="text-gray-300 break-keep">
+                            성공적으로 실험 보고서가 전송되었습니다.<br/>
+                            거울이 만드는 신비한 <b>상</b>의 원리를 잘 기억해두세요!
+                        </p>
+                        <div className="p-4 bg-black/30 rounded-xl my-6">
+                            <p className="text-sm text-gray-400 mb-1">나의 퀴즈 점수</p>
+                            <p className="text-3xl font-bold text-accent">
+                                {Object.values(answers).filter(a => a.isCorrect).length} / 3
+                            </p>
+                        </div>
+                        <button 
+                            onClick={() => {
+                                setView('intro');
+                                handleReset();
+                                setStudentId(''); setStudentName(''); setInsight('');
+                                setAnswers({});
+                                const shuffled = [...QUIZ_POOL].sort(() => 0.5 - Math.random());
+                                setQuizList(shuffled.slice(0, 3));
+                            }}
+                            className="px-8 py-3 glass-btn rounded-full font-bold w-full"
+                        >
+                            처음으로 돌아가기
+                        </button>
+                    </div>
+                </div>
+            );
+
+            return (
+                <div className="relative">
+                    {/* 교사 가이드 버튼 - 전역 고정 */}
+                    <button 
+                        onClick={() => setShowGuide(true)}
+                        className="fixed top-4 right-4 z-40 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-xs px-3 py-2 rounded-full transition-colors"
+                    >
+                        👨‍🏫 DB 연동 가이드
+                    </button>
+
+                    {/* View Switcher */}
+                    <div className="animate-fade-in transition-opacity duration-300">
+                        {view === 'intro' && renderIntro()}
+                        {view === 'simulation' && renderSimulation()}
+                        {view === 'report' && renderReport()}
+                        {view === 'done' && renderDone()}
+                    </div>
+
+                    {/* Modals */}
+                    {alertMsg && <AlertModal message={alertMsg} onClose={() => setAlertMsg('')} />}
+                    {showGuide && <GuideModal onClose={() => setShowGuide(false)} />}
+                </div>
+            );
+        };
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
