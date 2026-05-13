@@ -10,16 +10,12 @@
     <meta name="theme-color" content="#0f172a">
     <title>3D 가상 광선 추적 랩 (평면거울의 상)</title>
     
-    <!-- PWA Icons (Placeholder SVGs via Data URI) -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%230f172a%22/><circle cx=%2250%22 cy=%2250%22 r=%2230%22 fill=%22%2338bdf8%22/></svg>">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%230f172a%22/><circle cx=%2250%22 cy=%2250%22 r=%2230%22 fill=%22%2338bdf8%22/></svg>">
-
-    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -76,7 +72,7 @@
         ::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.5); border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(56, 189, 248, 0.8); }
 
-        /* range slider custom */
+        /* Range slider custom styling */
         input[type=range] {
             -webkit-appearance: none;
             width: 100%;
@@ -102,12 +98,9 @@
         canvas { display: block; outline: none; }
     </style>
 
-    <!-- React & Babel -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-    <!-- Three.js & OrbitControls -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
@@ -121,17 +114,16 @@
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzlxxqXYelP-OVa3pYq_fRxwoIMyxH-EjMK0P-Vzi1DlmqG56_xC3Z_LjfRtKZIPIh0/exec"; 
 
         const QUIZ_POOL = [
-            { q: "평면거울에 비친 상은 빛이 실제로 모여서 생긴 것이다.", a: false, explain: "거울 뒤에서 빛의 연장선이 만나는 것처럼 보이는 '상'입니다." },
+            { q: "거울 앞에서 오른쪽을 가리키면, 거울 속의 상도 '오른쪽'을 똑같이 가리킨다.", a: true, explain: "직접 화살표를 확인해 보세요! 거울은 좌우(X축)를 바꾸지 않으므로 원래 방향 그대로를 가리킵니다." },
+            { q: "오른손용 고무장갑의 안팎을 앞뒤로 확 뒤집으면 왼손용이 되듯, 거울은 우리의 '앞뒤(Z축)'를 3차원적으로 뒤집어 보여준다.", a: true, explain: "거울은 좌우를 회전시킨 것이 아니라 앞뒤 깊이(Z축)를 데칼코마니처럼 반전시킵니다." },
             { q: "평면거울에서 물체와 거울 사이의 거리, 거울과 상 사이의 거리는 항상 같다.", a: true, explain: "대칭의 원리에 의해 거울 표면에서 물체까지, 상까지의 거리는 동일합니다." },
-            { q: "평면거울은 물체의 상하좌우를 바꾼다.", a: false, explain: "평면거울은 사실 좌우가 아니라 '앞뒤'를 바꿉니다." },
+            { q: "평면거울은 물체의 상하좌우를 모두 바꾼다.", a: false, explain: "평면거울은 상하(Y)와 좌우(X)는 그대로 두고, 오직 '앞뒤(Z)'만을 바꿉니다." },
             { q: "거울 속에 생기는 상은 우리가 거울 뒤에서 빛이 온다고 뇌가 착각하기 때문이다.", a: true, explain: "사람의 눈은 빛이 직진해서 온다고 인식하므로, 반사 광선의 연장선에서 빛이 출발한 것으로 느낍니다." },
-            { q: "평면거울을 향해 다가가면 상의 크기는 점점 커진다.", a: false, explain: "평면거울에서 상의 크기는 항상 실제 물체의 크기와 동일합니다." },
+            { q: "거울 속의 상은 거울의 표면(유리 겉면)에 맺히는 것이다.", a: false, explain: "화면을 돌려 거울 옆모습을 확인해 보세요. 상은 표면이 아니라 물체와 같은 거리만큼 떨어진 거울 '뒤쪽 공간'에 맺혀 있습니다." },
             { q: "관찰자가 거울에서 멀어지면 상도 뒤로 멀어진다.", a: false, explain: "상의 위치는 오직 '거울과 물체 사이의 거리'에만 의존하며, 관찰자의 위치와는 무관합니다." },
-            { q: "시뮬레이션에서 거울 뒤 공간의 점선은 실제 빛이 진행하는 경로이다.", a: false, explain: "빛은 거울을 통과하지 못합니다. 점선은 빛이 직진한다고 가정했을 때의 가상의 경로(연장선)입니다." },
-            { q: "거울에 비친 내 모습을 볼 때, 빛은 내 몸에서 출발해 거울에서 반사되어 눈으로 들어온다.", a: true, explain: "물체에서 반사된 빛이 거울 면에서 반사 법칙에 따라 다시 반사되어 관찰자의 눈으로 들어옵니다." },
+            { q: "거울에 비친 오른손이 왼손처럼 보이는 진짜 이유는 뇌의 '착각' 때문이다.", a: true, explain: "거울은 앞뒤만 뒤집었을 뿐인데, 뇌가 스스로 '저 사람이 180도 돌아서서 나를 마주보고 있다'고 상상(멘탈 로테이션)하기 때문에 좌우가 바뀌었다고 느낍니다." },
             { q: "빛이 거울 면에서 반사될 때, 항상 입사각과 반사각의 크기는 같다.", a: true, explain: "이는 빛의 반사 법칙으로, 평면거울에서도 완벽하게 적용됩니다." },
-            { q: "거울에 비친 오른손이 왼손처럼 보이는 이유는 거울이 물체를 앞뒤 대칭으로 뒤집었기 때문이다.", a: true, explain: "거울은 거울 면을 기준으로 앞뒤를 대칭시킵니다. 이 때문에 방향이 역전되어 보이는 것입니다." },
-            { q: "거울 속의 상은 거울의 표면(유리 겉면)에 맺히는 것이다.", a: false, explain: "화면을 돌려 거울 옆모습을 확인해 보세요. 상은 표면이 아니라 물체와 같은 거리만큼 떨어진 거울 '뒤쪽 공간'에 맺혀 있습니다." }
+            { q: "물체를 제자리에서 180도 회전시켜 뒷면을 거울에 비추면, 거울 속 상은 앞면을 보여준다.", a: true, explain: "직접 Y축 회전 슬라이더를 돌려보세요! 물체의 뒷면(파랑)을 거울 쪽으로 향하면, 거울 속 상은 그 파란색 뒷면을 마주보게 되어 앞면(빨강)이 보입니다." }
         ];
 
         // ==============================================================
@@ -179,13 +171,9 @@
       .setMimeType(ContentService.MimeType.JSON);
   }
 }`;
-                
                 try {
-                    // Create a temporary textarea to use document.execCommand('copy') which works inside restricted iFrames
                     const textArea = document.createElement("textarea");
                     textArea.value = codeToCopy;
-                    
-                    // Prevent scrolling to bottom
                     textArea.style.position = "fixed";
                     textArea.style.top = "0";
                     textArea.style.left = "0";
@@ -223,48 +211,15 @@
                             <div className="relative mt-2">
                                 <pre className="bg-black/50 p-3 rounded overflow-x-auto text-xs text-green-300">
 {`function doPost(e) {
-  try {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-    const data = JSON.parse(e.postData.contents);
-    sheet.appendRow([
-      new Date(),
-      data.studentId || "",
-      data.studentName || "",
-      data.minValue ?? "",
-      data.maxValue ?? "",
-      data.quizScore ?? "",
-      data.insight || ""
-    ]);
-    return ContentService.createTextOutput(JSON.stringify({result:"success"}))
-      .setMimeType(ContentService.MimeType.JSON);
-  } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({result:"error", message: err.message}))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
+  // ... 생략 (복사 버튼으로 전체 복사)
 }`}</pre>
                                 <button 
                                     className={`absolute top-2 right-2 px-2 py-1 rounded text-xs transition-colors ${copied ? 'bg-green-500/50 text-white' : 'bg-white/20 hover:bg-white/30'}`}
                                     onClick={handleCopy}
                                 >
-                                    {copied ? '복사됨!' : '복사'}
+                                    {copied ? '복사됨!' : '전체 복사'}
                                 </button>
                             </div>
-                        </div>
-                        <div>
-                            <h3 className="font-bold text-main mb-1">③ 배포 및 URL 적용</h3>
-                            <ul className="list-disc pl-5">
-                                <li>우측 상단 <b>배포</b> &gt; <b>새 배포</b> 클릭</li>
-                                <li>유형: <b>웹 앱</b></li>
-                                <li>액세스: <b>모든 사용자</b> (접근 권한)</li>
-                                <li>배포 클릭 후 발급된 URL을 복사하여 HTML 소스코드 최상단 <code>GOOGLE_SCRIPT_URL</code> 변수에 붙여넣습니다.</li>
-                            </ul>
-                        </div>
-                        <div>
-                            <h3 className="font-bold text-main mb-1">④ PWA 홈 화면 추가 안내</h3>
-                            <ul className="list-disc pl-5">
-                                <li>iOS(Safari): 하단 공유 버튼 📤 &gt; '홈 화면에 추가'</li>
-                                <li>Android(Chrome): 우측 상단 메뉴 ⋮ &gt; '홈 화면에 추가'</li>
-                            </ul>
                         </div>
                     </div>
                     <div className="mt-6 text-center text-gray-500 text-xs">Created by Yang DH</div>
@@ -296,10 +251,10 @@
             
             const createFModel = (isImage = false) => {
                 const group = new THREE.Group();
-                // Materials
-                const matFront = new THREE.MeshLambertMaterial({ color: 0xff3333 }); // Red front
-                const matBack = new THREE.MeshLambertMaterial({ color: 0x3333ff });  // Blue back
-                const matSide = new THREE.MeshLambertMaterial({ color: 0x888888 });  // Gray sides
+                // Materials (DoubleSide 추가로 거울상 반전시 렌더링 깨짐 방지)
+                const matFront = new THREE.MeshLambertMaterial({ color: 0xff3333, side: THREE.DoubleSide }); // Red front
+                const matBack = new THREE.MeshLambertMaterial({ color: 0x3333ff, side: THREE.DoubleSide });  // Blue back
+                const matSide = new THREE.MeshLambertMaterial({ color: 0x888888, side: THREE.DoubleSide });  // Gray sides
                 
                 // BoxGeometry faces: right(0), left(1), top(2), bottom(3), front(4), back(5)
                 // front is +z, back is -z
@@ -318,6 +273,32 @@
                 group.add(topBar);
                 group.add(midBar);
 
+                // XYZ 축 화살표 추가 (좌우/앞뒤 반전 증명용)
+                const createArrow = (dir, color) => {
+                    const arrowGrp = new THREE.Group();
+                    const arrowMat = new THREE.MeshLambertMaterial({ color: color, side: THREE.DoubleSide });
+                    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.5), arrowMat);
+                    const head = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.5), arrowMat);
+                    
+                    const axis = new THREE.Vector3(0, 1, 0);
+                    shaft.quaternion.setFromUnitVectors(axis, dir);
+                    head.quaternion.setFromUnitVectors(axis, dir);
+                    
+                    shaft.position.copy(dir).multiplyScalar(1.25);
+                    head.position.copy(dir).multiplyScalar(2.5 + 0.25);
+                    
+                    arrowGrp.add(shaft);
+                    arrowGrp.add(head);
+                    return arrowGrp;
+                };
+
+                const axesGrp = new THREE.Group();
+                axesGrp.position.set(-1, 0, 0); // stem 중심에서 출발
+                axesGrp.add(createArrow(new THREE.Vector3(1, 0, 0), 0xff4444)); // X축 (빨강/좌우)
+                axesGrp.add(createArrow(new THREE.Vector3(0, 1, 0), 0x44ff44)); // Y축 (초록/상하)
+                axesGrp.add(createArrow(new THREE.Vector3(0, 0, 1), 0x4488ff)); // Z축 (파랑/앞뒤)
+                group.add(axesGrp);
+
                 // Add point marker (Top)
                 const markerGeo = new THREE.SphereGeometry(0.2, 16, 16);
                 const markerMatTop = new THREE.MeshBasicMaterial({ color: 0xffff00 });
@@ -332,7 +313,7 @@
                 group.add(markerBot);
 
                 if (isImage) {
-                    // 상은 z축 대칭: 앞뒤 반전
+                    // 상은 z축 대칭: 앞뒤 반전. (DoubleSide Material 덕분에 렌더링 정상 출력됨)
                     group.scale.set(1, 1, -1);
                 }
 
@@ -368,7 +349,7 @@
                 controlsRef.current = controls;
 
                 // 5. Lighting
-                const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
                 scene.add(ambientLight);
                 const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
                 dirLight.position.set(10, 20, 30);
@@ -455,7 +436,6 @@
                 scene.add(normalLine);
                 normalLineRef.current = normalLine;
 
-                // Animation Loop
                 let reqId;
                 const animate = () => {
                     reqId = requestAnimationFrame(animate);
@@ -485,12 +465,11 @@
                 };
             }, []);
 
-            // Update positions dynamically
             React.useEffect(() => {
                 if (!objGroupRef.current || !imgGroupRef.current || !rayLineTopRef.current) return;
 
                 const heightOffset = 2; // Lift F model above grid
-                // 눈의 위치를 거울에 더 가깝게(Z: 15) 낮게(Y: 8) 조정하여 한눈에 보이게 함
+                // 눈의 위치를 거울에 가깝게 유지 (Z: 15, Y: 8)
                 const eyePos = new THREE.Vector3(eyeX, 8, 15);
                 
                 if (eyeMeshRef.current) {
@@ -505,7 +484,7 @@
                 objGroupRef.current.updateMatrixWorld();
                 
                 imgGroupRef.current.position.set(objX, heightOffset, -objDistance);
-                imgGroupRef.current.rotation.set(0, objRotRad, 0); // scale.z = -1 already handles the mirroring perfectly
+                imgGroupRef.current.rotation.set(0, objRotRad, 0); 
                 imgGroupRef.current.updateMatrixWorld();
 
                 const calcReflection = (localPt, rayLine, extLine) => {
@@ -529,19 +508,17 @@
                     return { pObj, pRef };
                 };
 
-                // Top Point
+                // Top Point & Bottom Point Tracing
                 const { pObj: pObjTop, pRef: pRefTop } = calcReflection(new THREE.Vector3(1.9, 1.6, 0.25), rayLineTopRef.current, extLineTopRef.current);
-                
-                // Bottom Point
                 calcReflection(new THREE.Vector3(-1.0, -2.0, 0.25), rayLineBotRef.current, extLineBotRef.current);
 
-                // Normal Line
+                // Normal Line Update
                 const pNormalEnd = new THREE.Vector3(pRefTop.x, pRefTop.y, pRefTop.z + 10);
                 normalLineRef.current.geometry.dispose();
                 normalLineRef.current.geometry = new THREE.BufferGeometry().setFromPoints([pRefTop, pNormalEnd]);
                 normalLineRef.current.computeLineDistances();
 
-                // Calculate Incident/Reflection Angle
+                // Angle Calculation
                 const vObjToRef = new THREE.Vector3().subVectors(pObjTop, pRefTop).normalize();
                 const normalVec = new THREE.Vector3(0, 0, 1);
                 const angleRad = vObjToRef.angleTo(normalVec);
@@ -549,7 +526,7 @@
                 
                 if (onAngleUpdate) onAngleUpdate(angleDeg);
 
-                // Eye looks at top reflection point
+                // Eye LookAt Update
                 if (eyeMeshRef.current) {
                     eyeMeshRef.current.lookAt(pRefTop);
                 }
@@ -586,7 +563,7 @@
             const [answers, setAnswers] = React.useState({});
             const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-            // Initialization
+            // Initialization (Random Quiz)
             React.useEffect(() => {
                 const shuffled = [...QUIZ_POOL].sort(() => 0.5 - Math.random());
                 setQuizList(shuffled.slice(0, 3));
@@ -662,7 +639,6 @@
                 });
             };
 
-            // Views Renderers
             const renderIntro = () => (
                 <div className="flex flex-col items-center justify-center min-h-screen p-6 relative">
                     <div className="glass max-w-3xl w-full p-8 md:p-12 rounded-3xl text-center space-y-6 animate-fade-in relative overflow-hidden">
@@ -684,7 +660,7 @@
                             <ul className="list-disc pl-5 space-y-1 text-gray-300">
                                 <li>빛이 반사되어 눈으로 들어오는 경로(실선) 관찰하기</li>
                                 <li>거울 뒤 공간의 빛의 연장선(점선)이 만나는 점 찾기</li>
-                                <li>물체의 앞뒷면 색상을 통해 거울이 <b>앞뒤</b>를 바꾼다는 사실 깨닫기</li>
+                                <li>화살표와 색상을 통해 거울이 <b>좌우가 아닌 앞뒤</b>를 바꾼다는 사실 깨닫기</li>
                             </ul>
                         </div>
 
@@ -722,6 +698,10 @@
                                 <div className="flex items-center"><span className="w-4 h-[2px] bg-orange-400 mr-2 inline-block"></span> 밑점 빛 (Bottom)</div>
                                 <div className="flex items-center"><span className="w-4 h-[2px] border-t-2 border-dashed border-gray-400 mr-2 inline-block"></span> 빛의 연장선(상)</div>
                                 <div className="flex items-center"><span className="w-4 h-[2px] border-t-2 border-dashed border-green-500 mr-2 inline-block"></span> 거울 표면 법선</div>
+                                <div className="border-t border-white/20 my-1"></div>
+                                <div className="flex items-center"><span className="text-red-400 font-bold text-sm w-4 mr-2 text-center">→</span> X축(좌우) 화살표</div>
+                                <div className="flex items-center"><span className="text-green-400 font-bold text-sm w-4 mr-2 text-center">↑</span> Y축(상하) 화살표</div>
+                                <div className="flex items-center"><span className="text-blue-400 font-bold text-sm w-4 mr-2 text-center">↗</span> Z축(앞뒤) 화살표</div>
                             </div>
                             
                             <ThreeSimulation 
@@ -737,6 +717,25 @@
                         <div className="w-full lg:w-80 glass rounded-2xl p-5 flex flex-col gap-6 overflow-y-auto">
                             <div>
                                 <h3 className="text-lg font-bold mb-3 flex items-center">🎛️ 조작 패널</h3>
+                                
+                                {/* 관찰 미션 박스 추가 */}
+                                <div className="bg-blue-900/30 border border-blue-400/50 p-4 rounded-xl space-y-2 mb-4 shadow-lg shadow-blue-500/10">
+                                    <h3 className="text-sm font-bold text-blue-300 flex items-center">
+                                        <span className="mr-2">🔎</span> 미션: 거울은 좌우를 바꿀까?
+                                    </h3>
+                                    <p className="text-xs text-gray-300 leading-tight">
+                                        물체와 상에 꽂힌 <b>방향 화살표</b>를 비교해 보세요.
+                                    </p>
+                                    <ul className="text-xs text-gray-300 space-y-1 bg-black/30 p-2 rounded">
+                                        <li><span className="text-red-400 font-bold">빨강(X/좌우):</span> 같은 방향 (안 바뀜)</li>
+                                        <li><span className="text-green-400 font-bold">초록(Y/상하):</span> 같은 방향 (안 바뀜)</li>
+                                        <li><span className="text-blue-400 font-bold">파랑(Z/앞뒤):</span> 서로 마주봄 <b className="text-white">(바뀜!)</b></li>
+                                    </ul>
+                                    <p className="text-[10px] text-blue-200 leading-tight mt-1">
+                                        결론: 거울은 좌우를 바꾸지 않고, 장갑의 안팎을 뒤집듯 <b>'앞뒤(Z축)'</b>만 뒤집습니다!
+                                    </p>
+                                </div>
+
                                 <div className="space-y-4">
                                     <div className="bg-black/30 p-3 rounded-xl border border-white/5">
                                         <div className="flex justify-between mb-2 text-sm">
@@ -765,9 +764,6 @@
                                             <span className="text-accent font-bold">{eyeX}</span>
                                         </div>
                                         <input type="range" min="-20" max="20" step="1" value={eyeX} onChange={(e) => setEyeX(Number(e.target.value))} />
-                                        <p className="text-[10px] text-gray-400 mt-2 leading-tight">
-                                            * 관찰자가 이동해도 상의 위치는 변하지 않는 것을 확인하세요.
-                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -821,7 +817,6 @@
                         <h2 className="text-3xl font-black text-center mb-8 text-main mt-4">실험 결과 보고서</h2>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            {/* Left Col: Data & Input */}
                             <div className="space-y-6">
                                 <div className="bg-black/40 p-5 rounded-2xl border border-white/5">
                                     <h3 className="font-bold text-accent mb-3">📍 기록된 데이터</h3>
@@ -853,11 +848,10 @@
                                         <input type="number" placeholder="학번 (예: 2101)" value={studentId} onChange={e => setStudentId(e.target.value)} className="flex-1 bg-black/50 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:border-main text-white" />
                                         <input type="text" placeholder="이름" value={studentName} onChange={e => setStudentName(e.target.value)} className="flex-1 bg-black/50 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:border-main text-white" />
                                     </div>
-                                    <textarea placeholder="3D 공간에서 평면거울을 관찰하며 새롭게 알게 된 점을 적어보세요. (특히 거울이 앞뒤를 바꾼다는 점, 상이 생기는 원리 등)" value={insight} onChange={e => setInsight(e.target.value)} className="w-full h-32 bg-black/50 border border-white/10 rounded-lg px-4 py-3 focus:outline-none focus:border-main text-white resize-none"></textarea>
+                                    <textarea placeholder="거울의 좌우 반전 오개념, 고무장갑 비유, 빛의 반사 등 실험을 통해 새롭게 알게 된 점을 자유롭게 적어보세요." value={insight} onChange={e => setInsight(e.target.value)} className="w-full h-32 bg-black/50 border border-white/10 rounded-lg px-4 py-3 focus:outline-none focus:border-main text-white resize-none"></textarea>
                                 </div>
                             </div>
 
-                            {/* Right Col: Quiz */}
                             <div className="bg-black/40 p-5 rounded-2xl border border-white/5 flex flex-col">
                                 <h3 className="font-bold text-accent mb-4 flex justify-between items-center">
                                     <span>🧠 개념 확인 OX 퀴즈</span>
